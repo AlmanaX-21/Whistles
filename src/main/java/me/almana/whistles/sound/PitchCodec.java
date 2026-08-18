@@ -28,4 +28,9 @@ public class PitchCodec {
 		float pitch = (float) Math.pow(2, semitones / 12.0);
 		return Math.max(MIN_PLAYBACK, Math.min(MAX_PLAYBACK, pitch));
 	}
+
+	public static float normalizedPull(float semitones, int range) {
+		int limit = Math.min(range, MAX_RANGE);
+		return Math.max(0, Math.min(1, (semitones + limit) / (2f * limit)));
+	}
 }

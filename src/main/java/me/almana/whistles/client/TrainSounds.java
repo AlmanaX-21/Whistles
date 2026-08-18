@@ -11,6 +11,7 @@ import me.almana.whistles.Config;
 import me.almana.whistles.block.SoundMode;
 import me.almana.whistles.net.TrainSoundPacket;
 import me.almana.whistles.sound.PitchCodec;
+import me.almana.whistles.sound.VolumeCodec;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -24,6 +25,7 @@ public class TrainSounds {
 	private static class Channel {
 		boolean active;
 		float semitones;
+		float leverVolume = 100;
 		float fade;
 		ResourceLocation playingSound;
 		TrainSoundInstance instance;
@@ -33,7 +35,11 @@ public class TrainSounds {
 	public static void receive(TrainSoundPacket packet) {
 		Channel channel = channelOf(packet.trainId, packet.mode);
 		channel.active = packet.active;
-		channel.semitones = PitchCodec.decode(packet.pitch, Config.pitchRange());
+		int range = Config.pitchRange();
+		channel.semitones = PitchCodec.decode(packet.pitch, range);
+		float pull = PitchCodec.normalizedPull(channel.semitones, range);
+		channel.leverVolume = VolumeCodec.leverVolume(pull, Config.leverVolumeInfluence(), Config.leverVolumeMin(),
+			Config.leverVolumeMax());
 	}
 
 	private static Channel channelOf(UUID trainId, SoundMode mode) {
@@ -99,7 +105,7 @@ public class TrainSounds {
 				.play(channel.instance);
 		}
 
-		channel.instance.setVolume(channel.fade * Config.volume());
+		channel.instance.setVolume(channel.fade * Config.volume() * (channel.leverVolume / 100f));
 		channel.instance.setPitch(PitchCodec.playbackPitch(channel.semitones));
 		channel.instance.setLocation(channel.source.worldPosition());
 		return true;

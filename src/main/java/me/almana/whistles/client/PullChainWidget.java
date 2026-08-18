@@ -1,5 +1,6 @@
 package me.almana.whistles.client;
 
+import me.almana.whistles.Config;
 import me.almana.whistles.block.SoundMode;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,7 +12,6 @@ public class PullChainWidget extends AbstractWidget {
 
 	private static final float EASE_STEP = 0.15f;
 	private static final float DEADZONE = 0.02f;
-	private static final int HANG_TICKS = 20;
 
 	private final SoundMode mode;
 	private float pull;
@@ -43,7 +43,7 @@ public class PullChainWidget extends AbstractWidget {
 		if (dragging) {
 			dragging = false;
 			if (pull > 0)
-				hangTicks = HANG_TICKS;
+				hangTicks = Config.hangTicks();
 		}
 	}
 

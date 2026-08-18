@@ -10,7 +10,14 @@
 
     "whistles.gui.config_title": "Train Whistles",
     "whistles.gui.pitch_range": "Pitch Range: %s semitones",
-    "whistles.gui.config_needs_world": "Join a world to edit this",
+    "whistles.gui.volume": "Master Volume: %s",
+    "whistles.gui.hearing_range": "Hearing Range: %s blocks",
+    "whistles.gui.lever_volume_influence": "Lever Volume Influence: %s",
+    "whistles.gui.lever_volume_min": "Lever Volume Min: %s%%",
+    "whistles.gui.lever_volume_max": "Lever Volume Max: %s%%",
+    "whistles.gui.sweep_ticks": "Sweep Ticks: %s",
+    "whistles.gui.hang_ticks": "Hang Ticks: %s",
+    "whistles.gui.config_needs_world": "Join a world to edit server-side options",
 
     "whistles.hud.whistle": "Whistle",
     "whistles.hud.horn": "Horn",
