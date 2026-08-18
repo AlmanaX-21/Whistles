@@ -1,0 +1,15 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        " N ",
+        "SWS"
+    ],
+    "key": {
+        "N": { "item": "minecraft:note_block" },
+        "W": { "item": "create:steam_whistle" },
+        "S": { "item": "create:copper_sheet" }
+    },
+    "result": {
+        "item": "whistles:train_sound_post"
+    }
+}

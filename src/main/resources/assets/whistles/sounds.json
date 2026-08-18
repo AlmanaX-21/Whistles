@@ -1,0 +1,26 @@
+{
+    "train_sound/steam_whistle": {
+        "subtitle": "whistles.subtitle.whistle",
+        "sounds": [
+            { "name": "create:whistle_train_manual", "stream": false }
+        ]
+    },
+    "train_sound/steam_whistle_low": {
+        "subtitle": "whistles.subtitle.whistle",
+        "sounds": [
+            { "name": "create:whistle_train_manual_low", "stream": false }
+        ]
+    },
+    "train_sound/steam_horn": {
+        "subtitle": "whistles.subtitle.horn",
+        "sounds": [
+            { "name": "create:whistle_train", "stream": false }
+        ]
+    },
+    "train_sound/steam_horn_low": {
+        "subtitle": "whistles.subtitle.horn",
+        "sounds": [
+            { "name": "create:whistle_train_low", "stream": false }
+        ]
+    }
+}

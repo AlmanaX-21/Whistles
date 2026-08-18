@@ -1,0 +1,12 @@
+{
+    "variants": {
+        "facing=south,mode=whistle": { "model": "create:block/steam_whistle/block_medium_floor" },
+        "facing=west,mode=whistle":  { "model": "create:block/steam_whistle/block_medium_floor", "y": 90 },
+        "facing=north,mode=whistle": { "model": "create:block/steam_whistle/block_medium_floor", "y": 180 },
+        "facing=east,mode=whistle":  { "model": "create:block/steam_whistle/block_medium_floor", "y": 270 },
+        "facing=south,mode=horn": { "model": "create:block/steam_whistle/block_large_floor" },
+        "facing=west,mode=horn":  { "model": "create:block/steam_whistle/block_large_floor", "y": 90 },
+        "facing=north,mode=horn": { "model": "create:block/steam_whistle/block_large_floor", "y": 180 },
+        "facing=east,mode=horn":  { "model": "create:block/steam_whistle/block_large_floor", "y": 270 }
+    }
+}

@@ -1,0 +1,32 @@
+{
+    "itemGroup.whistles": "Train Whistles",
+
+    "block.whistles.train_sound_post": "Train Sound Post",
+
+    "whistles.gui.select_sound": "Select Train Sound",
+    "whistles.gui.search": "Search",
+    "whistles.gui.preview": "Preview",
+    "whistles.gui.selected": "Loaded: %s",
+
+    "whistles.gui.config_title": "Train Whistles",
+    "whistles.gui.pitch_range": "Pitch Range: %s semitones",
+    "whistles.gui.config_needs_world": "Join a world to edit this",
+
+    "whistles.hud.whistle": "Whistle",
+    "whistles.hud.horn": "Horn",
+
+    "whistles.goggles.whistle": "Whistle Sound:",
+    "whistles.goggles.horn": "Horn Sound:",
+
+    "key.categories.whistles": "Train Whistles",
+    "key.whistles.whistle": "Sound Whistle",
+    "key.whistles.whistle_up": "Whistle Pitch Up",
+    "key.whistles.whistle_down": "Whistle Pitch Down",
+    "key.whistles.horn": "Sound Horn",
+    "key.whistles.horn_up": "Horn Pitch Up",
+    "key.whistles.horn_down": "Horn Pitch Down",
+    "key.whistles.open_controls": "Open Whistle Controls",
+
+    "whistles.subtitle.whistle": "Train whistle sounds",
+    "whistles.subtitle.horn": "Train horn sounds"
+}
