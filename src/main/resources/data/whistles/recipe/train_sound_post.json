@@ -10,6 +10,6 @@
         "S": { "item": "create:copper_sheet" }
     },
     "result": {
-        "item": "whistles:train_sound_post"
+        "id": "whistles:train_sound_post"
     }
 }
