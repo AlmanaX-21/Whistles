@@ -7,19 +7,19 @@ import me.almana.whistles.Whistles;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.ConfigScreenHandler;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.level.LevelEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModLoadingContext;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 public class ClientSetup {
 
-	@Mod.EventBusSubscriber(modid = Whistles.ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+	@EventBusSubscriber(modid = Whistles.ID, value = Dist.CLIENT)
 	public static class ModBus {
 
 		@SubscribeEvent
@@ -31,18 +31,17 @@ public class ClientSetup {
 		@SubscribeEvent
 		public static void clientSetup(FMLClientSetupEvent event) {
 			ModLoadingContext.get()
-				.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
-					() -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new WhistlesConfigScreen(parent)));
+				.getActiveContainer()
+				.registerExtensionPoint(IConfigScreenFactory.class,
+					(container, parent) -> new WhistlesConfigScreen(parent));
 		}
 	}
 
-	@Mod.EventBusSubscriber(modid = Whistles.ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+	@EventBusSubscriber(modid = Whistles.ID, value = Dist.CLIENT)
 	public static class ForgeBus {
 
 		@SubscribeEvent
-		public static void tick(TickEvent.ClientTickEvent event) {
-			if (event.phase != TickEvent.Phase.END)
-				return;
+		public static void tick(ClientTickEvent.Post event) {
 			TrainSoundInput.tick();
 			TrainSounds.tick();
 

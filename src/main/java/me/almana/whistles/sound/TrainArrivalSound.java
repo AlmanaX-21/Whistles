@@ -13,7 +13,6 @@ import com.simibubi.create.content.trains.entity.Carriage;
 import com.simibubi.create.content.trains.entity.Carriage.DimensionalCarriageEntity;
 import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
 import com.simibubi.create.content.trains.entity.Train;
-import me.almana.whistles.AllPackets;
 import me.almana.whistles.Whistles;
 import me.almana.whistles.client.TrainSoundSources;
 import me.almana.whistles.client.TrainSoundSources.Source;
@@ -24,26 +23,23 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
-import net.minecraftforge.event.TickEvent.LevelTickEvent;
-import net.minecraftforge.event.TickEvent.Phase;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.LogicalSide;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.network.PacketDistributor;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
-@Mod.EventBusSubscriber(modid = Whistles.ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(modid = Whistles.ID)
 public class TrainArrivalSound {
 
 	private static final Map<MinecraftServer, Set<UUID>> NORMALIZED_TRAINS = new WeakHashMap<>();
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
-	public static void tick(LevelTickEvent event) {
-		if (event.side != LogicalSide.SERVER || event.phase != Phase.START
-			|| event.level.dimension() != Level.OVERWORLD)
+	public static void tick(LevelTickEvent.Pre event) {
+		if (!(event.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD)
 			return;
-		MinecraftServer server = ((ServerLevel) event.level).getServer();
-		var trains = Create.RAILWAYS.sided(event.level).trains;
+		MinecraftServer server = level.getServer();
+		var trains = Create.RAILWAYS.sided(level).trains;
 		Set<UUID> normalizedTrains = NORMALIZED_TRAINS.computeIfAbsent(server, ignored -> new HashSet<>());
 		normalizedTrains.retainAll(trains.keySet());
 		for (Train train : trains.values()) {
@@ -98,7 +94,7 @@ public class TrainArrivalSound {
 
 		Source source = sources.get(sourceIndex);
 		train.navigation.announceArrival = false;
-		AllPackets.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(source::entity),
+		PacketDistributor.sendToPlayersTrackingEntity(source.entity(),
 			new TrainArrivalSoundPacket(source.entity().getId(), source.localPos(), source.sound(), source.settings()));
 		return true;
 	}

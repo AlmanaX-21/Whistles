@@ -113,7 +113,7 @@ public class TrainSoundSources {
 	private static ResourceLocation soundOf(StructureBlockInfo info, SoundMode mode) {
 		if (info.nbt() != null && info.nbt()
 			.contains("Sound"))
-			return new ResourceLocation(info.nbt()
+			return ResourceLocation.parse(info.nbt()
 				.getString("Sound"));
 		return mode == SoundMode.HORN ? TrainSoundPostBlockEntity.DEFAULT_HORN
 			: TrainSoundPostBlockEntity.DEFAULT_WHISTLE;

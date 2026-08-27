@@ -11,6 +11,7 @@ import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -95,8 +96,8 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 	}
 
 	@Override
-	protected void saveAdditional(CompoundTag tag) {
-		super.saveAdditional(tag);
+	protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+		super.saveAdditional(tag, registries);
 		tag.putString("Sound", sound.toString());
 		tag.put("Settings", settings.write());
 		tag.putBoolean(AUTOMATIC_ARRIVAL, automaticArrival);
@@ -104,10 +105,10 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 	}
 
 	@Override
-	public void load(CompoundTag tag) {
-		super.load(tag);
+	protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+		super.loadAdditional(tag, registries);
 		if (tag.contains("Sound"))
-			sound = new ResourceLocation(tag.getString("Sound"));
+			sound = ResourceLocation.parse(tag.getString("Sound"));
 		automaticArrival = tag.getBoolean(AUTOMATIC_ARRIVAL);
 		automaticArrivalOrder = automaticArrival ? tag.getLong(AUTOMATIC_ARRIVAL_ORDER) : 0;
 		if (tag.contains("Settings", Tag.TAG_COMPOUND)) {
@@ -136,8 +137,8 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 	}
 
 	@Override
-	public CompoundTag getUpdateTag() {
-		return saveWithoutMetadata();
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		return saveWithoutMetadata(registries);
 	}
 
 	@Override

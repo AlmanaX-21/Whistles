@@ -2,19 +2,19 @@ package me.almana.whistles;
 
 import me.almana.whistles.block.TrainSoundPostBlockEntity;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class AllBlockEntities {
 
 	private static final DeferredRegister<BlockEntityType<?>> TYPES =
-		DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, Whistles.ID);
+		DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Whistles.ID);
 
-	public static final RegistryObject<BlockEntityType<TrainSoundPostBlockEntity>> TRAIN_SOUND_POST =
+	public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<TrainSoundPostBlockEntity>> TRAIN_SOUND_POST =
 		TYPES.register("train_sound_post", () -> BlockEntityType.Builder
 			.of(TrainSoundPostBlockEntity::new, AllBlocks.TRAIN_SOUND_POST.get())
 			.build(null));

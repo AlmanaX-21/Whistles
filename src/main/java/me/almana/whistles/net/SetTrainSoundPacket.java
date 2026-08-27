@@ -1,20 +1,25 @@
 package me.almana.whistles.net;
 
-import java.util.function.Supplier;
-
+import me.almana.whistles.Whistles;
 import me.almana.whistles.block.TrainSoundPostBlockEntity;
 import me.almana.whistles.sound.AutomaticArrivalOrder;
 import me.almana.whistles.sound.SoundIds;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public class SetTrainSoundPacket {
+public class SetTrainSoundPacket implements CustomPacketPayload {
+
+	public static final Type<SetTrainSoundPacket> TYPE = new Type<>(Whistles.asResource("set_train_sound"));
+	public static final StreamCodec<FriendlyByteBuf, SetTrainSoundPacket> STREAM_CODEC =
+		StreamCodec.ofMember(SetTrainSoundPacket::write, SetTrainSoundPacket::new);
 
 	private final BlockPos pos;
 	private final ResourceLocation sound;
@@ -38,12 +43,10 @@ public class SetTrainSoundPacket {
 		buffer.writeBoolean(automaticArrival);
 	}
 
-	public void handle(Supplier<NetworkEvent.Context> context) {
-		context.get()
-			.enqueueWork(() -> {
-				ServerPlayer sender = context.get()
-					.getSender();
-				if (sender == null || !sender.level()
+	public void handleServer(IPayloadContext context) {
+		context.enqueueWork(() -> {
+				ServerPlayer sender = (ServerPlayer) context.player();
+				if (!sender.level()
 					.isLoaded(pos) || sender.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) > 64)
 					return;
 				if (sender.level()
@@ -63,7 +66,10 @@ public class SetTrainSoundPacket {
 					}
 				}
 			});
-		context.get()
-			.setPacketHandled(true);
+	}
+
+	@Override
+	public Type<? extends CustomPacketPayload> type() {
+		return TYPE;
 	}
 }

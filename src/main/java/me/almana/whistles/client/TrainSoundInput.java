@@ -4,13 +4,13 @@ import java.util.UUID;
 
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
 import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
-import me.almana.whistles.AllPackets;
 import me.almana.whistles.net.TrainSoundPacket;
 import me.almana.whistles.sound.PitchCodec;
 import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public class TrainSoundInput {
 
@@ -49,7 +49,7 @@ public class TrainSoundInput {
 		SENT_SETTINGS[sourceIndex] = settings;
 		COOLDOWN[sourceIndex] = PACKET_RATE;
 		lastTrainId = trainId;
-		AllPackets.CHANNEL.sendToServer(new TrainSoundPacket(trainId, sourceIndex, held, pitch, settings));
+		PacketDistributor.sendToServer(new TrainSoundPacket(trainId, sourceIndex, held, pitch, settings));
 	}
 
 	public static void releaseAll() {
@@ -58,7 +58,7 @@ public class TrainSoundInput {
 				continue;
 			SOUNDING[sourceIndex] = false;
 			if (lastTrainId != null)
-				AllPackets.CHANNEL.sendToServer(
+				PacketDistributor.sendToServer(
 					new TrainSoundPacket(lastTrainId, sourceIndex, false, SENT_PITCH[sourceIndex],
 						SENT_SETTINGS[sourceIndex]));
 		}

@@ -1,27 +1,24 @@
 package me.almana.whistles;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
 
 @Mod(Whistles.ID)
 public class Whistles {
 
 	public static final String ID = "whistles";
 
-	public Whistles() {
-		IEventBus modBus = FMLJavaModLoadingContext.get()
-			.getModEventBus();
+	public Whistles(IEventBus modBus, ModContainer container) {
 		AllBlocks.register(modBus);
 		AllBlockEntities.register(modBus);
 		AllCreativeTabs.register(modBus);
-		modBus.addListener((FMLCommonSetupEvent e) -> AllPackets.register());
-		Config.register();
+		modBus.addListener(AllPackets::register);
+		Config.register(container);
 	}
 
 	public static ResourceLocation asResource(String path) {
-		return new ResourceLocation(ID, path);
+		return ResourceLocation.fromNamespaceAndPath(ID, path);
 	}
 }

@@ -2,7 +2,6 @@ package me.almana.whistles.client;
 
 import java.util.function.DoubleConsumer;
 
-import me.almana.whistles.AllPackets;
 import me.almana.whistles.net.SetTrainSoundSettingsPacket;
 import me.almana.whistles.sound.PitchCodec;
 import me.almana.whistles.sound.TrainSoundSettings;
@@ -13,6 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public class TrainSoundSettingsScreen extends Screen {
 
@@ -73,7 +73,7 @@ public class TrainSoundSettingsScreen extends Screen {
 	private void saveAndClose() {
 		TrainSoundSettings settings = new TrainSoundSettings(pitchRange, volume, hearingRange, leverVolumeInfluence,
 			leverVolumeMin, leverVolumeMax);
-		AllPackets.CHANNEL.sendToServer(new SetTrainSoundSettingsPacket(pos, settings));
+		PacketDistributor.sendToServer(new SetTrainSoundSettingsPacket(pos, settings));
 		minecraft.setScreen(parent);
 	}
 
@@ -84,7 +84,7 @@ public class TrainSoundSettingsScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		renderBackground(graphics);
+		renderBackground(graphics, mouseX, mouseY, partialTick);
 		super.render(graphics, mouseX, mouseY, partialTick);
 		graphics.drawCenteredString(font, title, width / 2, 14, 0xFFFFFF);
 	}

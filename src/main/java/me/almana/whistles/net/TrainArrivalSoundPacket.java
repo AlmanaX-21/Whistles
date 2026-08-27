@@ -1,19 +1,25 @@
 package me.almana.whistles.net;
 
-import java.util.function.Supplier;
-
+import me.almana.whistles.Whistles;
 import me.almana.whistles.client.TrainSounds;
 import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public class TrainArrivalSoundPacket {
+public class TrainArrivalSoundPacket implements CustomPacketPayload {
+
+	public static final Type<TrainArrivalSoundPacket> TYPE =
+		new Type<>(Whistles.asResource("train_arrival_sound"));
+	public static final StreamCodec<FriendlyByteBuf, TrainArrivalSoundPacket> STREAM_CODEC =
+		StreamCodec.ofMember(TrainArrivalSoundPacket::write, TrainArrivalSoundPacket::new);
 
 	public final int entityId;
 	public final BlockPos localPos;
@@ -42,9 +48,15 @@ public class TrainArrivalSoundPacket {
 		settings.write(buffer);
 	}
 
-	public void handle(Supplier<NetworkEvent.Context> ctx) {
-		NetworkEvent.Context context = ctx.get();
-		context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> TrainSounds.playArrival(this)));
-		context.setPacketHandled(true);
+	public void handleClient(IPayloadContext context) {
+		context.enqueueWork(() -> {
+			if (FMLEnvironment.dist == Dist.CLIENT)
+				TrainSounds.playArrival(this);
+		});
+	}
+
+	@Override
+	public Type<? extends CustomPacketPayload> type() {
+		return TYPE;
 	}
 }

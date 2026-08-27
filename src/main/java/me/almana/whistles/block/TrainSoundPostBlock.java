@@ -1,11 +1,11 @@
 package me.almana.whistles.block;
 
+import com.mojang.serialization.MapCodec;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import me.almana.whistles.client.TrainSoundSelectScreen;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -23,12 +23,13 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 public class TrainSoundPostBlock extends HorizontalDirectionalBlock implements IWrenchable, EntityBlock {
 
 	public static final EnumProperty<SoundMode> MODE = EnumProperty.create("mode", SoundMode.class);
+	public static final MapCodec<TrainSoundPostBlock> CODEC = simpleCodec(TrainSoundPostBlock::new);
 
 	private static final VoxelShape SHAPE = Block.box(1, 0, 1, 15, 16, 15);
 
@@ -36,6 +37,11 @@ public class TrainSoundPostBlock extends HorizontalDirectionalBlock implements I
 		super(properties);
 		registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH)
 			.setValue(MODE, SoundMode.WHISTLE));
+	}
+
+	@Override
+	protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+		return CODEC;
 	}
 
 	@Override
@@ -75,13 +81,10 @@ public class TrainSoundPostBlock extends HorizontalDirectionalBlock implements I
 	}
 
 	@Override
-	public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
 		BlockHitResult hit) {
-		if (!player.getItemInHand(hand)
-			.isEmpty())
-			return InteractionResult.PASS;
-		if (level.isClientSide)
-			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> TrainSoundSelectScreen.open(pos));
+		if (level.isClientSide && FMLEnvironment.dist == Dist.CLIENT)
+			TrainSoundSelectScreen.open(pos);
 		return InteractionResult.SUCCESS;
 	}
 }

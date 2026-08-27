@@ -2,7 +2,6 @@ package me.almana.whistles.client;
 
 import java.util.Locale;
 
-import me.almana.whistles.AllPackets;
 import me.almana.whistles.block.TrainSoundPostBlockEntity;
 import me.almana.whistles.net.SetTrainSoundPacket;
 import me.almana.whistles.sound.SoundIds;
@@ -20,6 +19,7 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public class TrainSoundSelectScreen extends Screen {
 
@@ -87,7 +87,7 @@ public class TrainSoundSelectScreen extends Screen {
 	private void toggleAutomatic() {
 		automaticArrival = !automaticArrival;
 		automaticArrivalButton.setMessage(automaticArrivalLabel());
-		AllPackets.CHANNEL.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
+		PacketDistributor.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
 	}
 
 	private Component automaticArrivalLabel() {
@@ -97,13 +97,13 @@ public class TrainSoundSelectScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		AllPackets.CHANNEL.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
+		PacketDistributor.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
 		super.onClose();
 	}
 
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		renderBackground(graphics);
+		renderBackground(graphics, mouseX, mouseY, partialTick);
 		graphics.fill(TrainSoundSelectLayout.contentLeft(width) - TrainSoundSelectLayout.PANEL_PADDING,
 			TrainSoundSelectLayout.LIST_TOP - 4,
 			TrainSoundSelectLayout.contentRight(width) + TrainSoundSelectLayout.PANEL_PADDING,
@@ -120,11 +120,18 @@ public class TrainSoundSelectScreen extends Screen {
 
 		SoundList() {
 			super(TrainSoundSelectScreen.this.minecraft, TrainSoundSelectScreen.this.width,
-				TrainSoundSelectScreen.this.height, TrainSoundSelectLayout.LIST_TOP,
-				TrainSoundSelectLayout.listBottom(TrainSoundSelectScreen.this.height),
+				TrainSoundSelectLayout.listBottom(TrainSoundSelectScreen.this.height)
+					- TrainSoundSelectLayout.LIST_TOP,
+				TrainSoundSelectLayout.LIST_TOP,
 				TrainSoundSelectLayout.ROW_HEIGHT);
-			setRenderBackground(false);
-			setRenderTopAndBottom(false);
+		}
+
+		@Override
+		protected void renderListBackground(GuiGraphics graphics) {
+		}
+
+		@Override
+		protected void renderListSeparators(GuiGraphics graphics) {
 		}
 
 		void refresh(String filter) {
