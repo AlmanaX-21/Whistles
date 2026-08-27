@@ -15,12 +15,12 @@ My Train Sounds/
             └─ deep_horn.ogg
 ```
 
-`pack.mcmeta` for Minecraft 1.20.1:
+`pack.mcmeta` for Minecraft 1.21.1:
 
 ```json
 {
   "pack": {
-    "pack_format": 15,
+    "pack_format": 34,
     "description": "My Train Sounds"
   }
 }
