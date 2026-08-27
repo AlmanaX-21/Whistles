@@ -76,6 +76,10 @@ public class WhistleControlScreen extends Screen {
 	}
 
 	@Override
+	protected void renderBlurredBackground(float partialTick) {
+	}
+
+	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
 		super.render(graphics, mouseX, mouseY, partialTick);
 		for (PullChainWidget chain : chains) {
