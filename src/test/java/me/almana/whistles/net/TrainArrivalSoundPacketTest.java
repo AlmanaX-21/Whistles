@@ -15,7 +15,7 @@ class TrainArrivalSoundPacketTest {
 	@Test
 	void roundTripsTheSelectedMovingSoundSource() {
 		BlockPos localPos = new BlockPos(-4, 2, 9);
-		ResourceLocation sound = new ResourceLocation("railway_pack", "train_sound/deep_horn");
+		ResourceLocation sound = ResourceLocation.fromNamespaceAndPath("railway_pack", "train_sound/deep_horn");
 		TrainSoundSettings settings = new TrainSoundSettings(5, .35f, 104, 1.8f, 20, 95);
 		TrainArrivalSoundPacket packet = new TrainArrivalSoundPacket(73, localPos, sound, settings);
 		FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());

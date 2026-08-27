@@ -16,7 +16,7 @@ class SetTrainSoundPacketTest {
 	@Test
 	void writesTheAutomaticArrivalSelection() {
 		BlockPos pos = new BlockPos(8, 70, -12);
-		ResourceLocation sound = new ResourceLocation("whistles", "train_sound/test");
+		ResourceLocation sound = ResourceLocation.fromNamespaceAndPath("whistles", "train_sound/test");
 		FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
 
 		try {
@@ -36,7 +36,7 @@ class SetTrainSoundPacketTest {
 		FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
 		FriendlyByteBuf encoded = new FriendlyByteBuf(Unpooled.buffer());
 		buffer.writeBlockPos(new BlockPos(8, 70, -12));
-		buffer.writeResourceLocation(new ResourceLocation("whistles", "train_sound/test"));
+		buffer.writeResourceLocation(ResourceLocation.fromNamespaceAndPath("whistles", "train_sound/test"));
 		buffer.writeBoolean(true);
 
 		try {

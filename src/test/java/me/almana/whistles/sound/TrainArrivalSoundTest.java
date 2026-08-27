@@ -122,7 +122,7 @@ class TrainArrivalSoundTest {
 		CompoundTag data = new CompoundTag();
 		data.putLong("AutomaticArrivalOrder", automaticArrivalOrder);
 		Source source = new Source(carriageIndex, null, localPos,
-			new ResourceLocation("whistles", "train_sound/test"), mode,
+			ResourceLocation.fromNamespaceAndPath("whistles", "train_sound/test"), mode,
 			new TrainSoundSettings(12, 1, 64, 1, 0, 100), data);
 		source.setAutomaticArrival(automaticArrival);
 		return source;
