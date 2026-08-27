@@ -6,15 +6,17 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.simibubi.create.Create;
+import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
 import com.simibubi.create.content.trains.entity.Train;
-import me.almana.whistles.Config;
-import me.almana.whistles.block.SoundMode;
+import me.almana.whistles.net.TrainArrivalSoundPacket;
 import me.almana.whistles.net.TrainSoundPacket;
 import me.almana.whistles.sound.PitchCodec;
+import me.almana.whistles.sound.TrainSoundSettings;
 import me.almana.whistles.sound.VolumeCodec;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
 public class TrainSounds {
 
@@ -24,29 +26,37 @@ public class TrainSounds {
 
 	private static class Channel {
 		boolean active;
-		float semitones;
-		float leverVolume = 100;
+		byte pitch;
 		float fade;
+		TrainSoundSettings settings;
 		ResourceLocation playingSound;
 		TrainSoundInstance instance;
 		TrainSoundSources.Source source;
 	}
 
 	public static void receive(TrainSoundPacket packet) {
-		Channel channel = channelOf(packet.trainId, packet.mode);
+		if (!TrainSoundPacket.isValidSourceIndex(packet.sourceIndex))
+			return;
+		Channel channel = channelOf(packet.trainId, packet.sourceIndex);
 		channel.active = packet.active;
-		int range = Config.pitchRange();
-		channel.semitones = PitchCodec.decode(packet.pitch, range);
-		float pull = PitchCodec.normalizedPull(channel.semitones, range);
-		channel.leverVolume = VolumeCodec.leverVolume(pull, Config.leverVolumeInfluence(), Config.leverVolumeMin(),
-			Config.leverVolumeMax());
+		channel.pitch = packet.pitch;
+		channel.settings = packet.settings;
 	}
 
-	private static Channel channelOf(UUID trainId, SoundMode mode) {
-		Channel[] channels = PLAYING.computeIfAbsent(trainId, id -> new Channel[SoundMode.values().length]);
-		if (channels[mode.ordinal()] == null)
-			channels[mode.ordinal()] = new Channel();
-		return channels[mode.ordinal()];
+	public static void playArrival(TrainArrivalSoundPacket packet) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || !(mc.level.getEntity(packet.entityId) instanceof CarriageContraptionEntity entity))
+			return;
+		Vec3 location = entity.toGlobalVector(Vec3.atCenterOf(packet.localPos), 1);
+		mc.getSoundManager()
+			.play(new TrainArrivalSoundInstance(packet.sound, packet.settings, location));
+	}
+
+	private static Channel channelOf(UUID trainId, int sourceIndex) {
+		Channel[] channels = PLAYING.computeIfAbsent(trainId, id -> new Channel[TrainSoundPacket.MAX_SOURCES]);
+		if (channels[sourceIndex] == null)
+			channels[sourceIndex] = new Channel();
+		return channels[sourceIndex];
 	}
 
 	public static void tick() {
@@ -62,25 +72,28 @@ public class TrainSounds {
 			Map.Entry<UUID, Channel[]> entry = trains.next();
 			Train train = Create.RAILWAYS.sided(null).trains.get(entry.getKey());
 			boolean anyAlive = false;
-			for (SoundMode mode : SoundMode.values()) {
-				Channel channel = entry.getValue()[mode.ordinal()];
+			for (int sourceIndex = 0; sourceIndex < entry.getValue().length; sourceIndex++) {
+				Channel channel = entry.getValue()[sourceIndex];
 				if (channel == null)
 					continue;
-				anyAlive |= tickChannel(channel, train, mode);
+				anyAlive |= tickChannel(channel, train, sourceIndex);
 			}
 			if (!anyAlive)
 				trains.remove();
 		}
 	}
 
-	private static boolean tickChannel(Channel channel, Train train, SoundMode mode) {
+	private static boolean tickChannel(Channel channel, Train train, int sourceIndex) {
 		if (train == null) {
 			reset(channel);
 			return false;
 		}
 
-		if (channel.active && (channel.source == null || channel.source.stale()))
-			channel.source = TrainSoundSources.find(train, mode, Minecraft.getInstance().level);
+		if (channel.active && (channel.source == null || channel.source.stale())) {
+			stopInstance(channel);
+			var sources = TrainSoundSources.find(train, Minecraft.getInstance().level);
+			channel.source = sourceIndex < sources.size() ? sources.get(sourceIndex) : null;
+		}
 
 		if (channel.source == null) {
 			reset(channel);
@@ -94,19 +107,25 @@ public class TrainSounds {
 			return false;
 		}
 
+		TrainSoundSettings settings = channel.settings;
+		float semitones = PitchCodec.decode(channel.pitch, settings.pitchRange());
+		float pull = PitchCodec.normalizedPull(semitones, settings.pitchRange());
+		float leverVolume = VolumeCodec.leverVolume(pull, settings.leverVolumeInfluence(), settings.leverVolumeMin(),
+			settings.leverVolumeMax());
+
 		if (channel.instance == null || channel.instance.isStopped()
 			|| !channel.source.sound()
 				.equals(channel.playingSound)) {
 			stopInstance(channel);
 			channel.playingSound = channel.source.sound();
-			channel.instance = new TrainSoundInstance(channel.playingSound, Config.hearingRange());
+			channel.instance = new TrainSoundInstance(channel.playingSound, settings.hearingRange());
 			Minecraft.getInstance()
 				.getSoundManager()
 				.play(channel.instance);
 		}
 
-		channel.instance.setVolume(channel.fade * Config.volume() * (channel.leverVolume / 100f));
-		channel.instance.setPitch(PitchCodec.playbackPitch(channel.semitones));
+		channel.instance.setVolume(channel.fade * settings.volume() * (leverVolume / 100f));
+		channel.instance.setPitch(PitchCodec.playbackPitch(semitones));
 		channel.instance.setLocation(channel.source.worldPosition());
 		return true;
 	}
@@ -123,6 +142,8 @@ public class TrainSounds {
 	private static void reset(Channel channel) {
 		stopInstance(channel);
 		channel.source = null;
+		if (!channel.active)
+			channel.settings = null;
 		channel.fade = 0;
 	}
 

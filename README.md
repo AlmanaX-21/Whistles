@@ -10,5 +10,4 @@ Add a new whistle system to the train with a UI element on which you pull to pla
 - **Lever Volume Influence** — how strongly lever position affects volume; 1.0 is linear, higher ramps to max volume faster.
 - **Lever Volume Min** — volume when the lever is at its topmost (least pulled) position.
 - **Lever Volume Max** — volume when the lever is at its bottommost (fully pulled) position.
-- **Sweep Ticks** — ticks it takes the keyboard-driven pitch to sweep from centre to either end of the range.
 - **Hang Ticks** — ticks the pull chain hangs at its pulled position after release before easing back up.

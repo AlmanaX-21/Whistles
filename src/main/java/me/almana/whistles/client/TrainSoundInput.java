@@ -5,10 +5,9 @@ import java.util.UUID;
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
 import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
 import me.almana.whistles.AllPackets;
-import me.almana.whistles.Config;
-import me.almana.whistles.block.SoundMode;
 import me.almana.whistles.net.TrainSoundPacket;
 import me.almana.whistles.sound.PitchCodec;
+import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -17,10 +16,10 @@ public class TrainSoundInput {
 
 	private static final int PACKET_RATE = 5;
 
-	private static final float[] SEMITONES = new float[SoundMode.values().length];
-	private static final boolean[] SOUNDING = new boolean[SoundMode.values().length];
-	private static final byte[] SENT_PITCH = new byte[SoundMode.values().length];
-	private static final int[] COOLDOWN = new int[SoundMode.values().length];
+	private static final boolean[] SOUNDING = new boolean[TrainSoundPacket.MAX_SOURCES];
+	private static final byte[] SENT_PITCH = new byte[TrainSoundPacket.MAX_SOURCES];
+	private static final TrainSoundSettings[] SENT_SETTINGS = new TrainSoundSettings[TrainSoundPacket.MAX_SOURCES];
+	private static final int[] COOLDOWN = new int[TrainSoundPacket.MAX_SOURCES];
 
 	private static UUID lastTrainId;
 
@@ -28,64 +27,40 @@ public class TrainSoundInput {
 		Screen screen = Minecraft.getInstance().screen;
 		boolean driving = ControlsHandler.getContraption() instanceof CarriageContraptionEntity
 			&& (screen == null || screen instanceof WhistleControlScreen);
-		if (!driving) {
+		if (!driving)
 			releaseAll();
-			return;
-		}
-		if (screen instanceof WhistleControlScreen)
-			return; // GUI owns SOUNDING/COOLDOWN state while open, see WhistleControlScreen.tick()
-
-		lastTrainId = ((CarriageContraptionEntity) ControlsHandler.getContraption()).trainId;
-		for (SoundMode mode : SoundMode.values())
-			tickMode(mode, lastTrainId);
 	}
 
-	private static void tickMode(SoundMode mode, UUID trainId) {
-		int i = mode.ordinal();
-		int range = Config.pitchRange();
-		float step = (float) range / Config.sweepTicks();
+	public static void sendIfChanged(int sourceIndex, UUID trainId, boolean held, float semitones,
+		TrainSoundSettings settings) {
+		byte pitch = PitchCodec.encode(semitones, settings.pitchRange());
 
-		if (AllKeys.up(mode)
-			.isDown())
-			SEMITONES[i] = PitchCodec.clampSemitones(SEMITONES[i] + step, range);
-		if (AllKeys.down(mode)
-			.isDown())
-			SEMITONES[i] = PitchCodec.clampSemitones(SEMITONES[i] - step, range);
+		if (COOLDOWN[sourceIndex] > 0)
+			COOLDOWN[sourceIndex]--;
 
-		boolean held = AllKeys.sound(mode)
-			.isDown();
-		sendIfChanged(mode, trainId, held, SEMITONES[i]);
-	}
-
-	public static void sendIfChanged(SoundMode mode, UUID trainId, boolean held, float semitones) {
-		int i = mode.ordinal();
-		int range = Config.pitchRange();
-		byte pitch = PitchCodec.encode(semitones, range);
-
-		if (COOLDOWN[i] > 0)
-			COOLDOWN[i]--;
-
-		boolean changed = held != SOUNDING[i] || pitch != SENT_PITCH[i];
-		if (!held && !SOUNDING[i])
+		boolean changed = held != SOUNDING[sourceIndex] || pitch != SENT_PITCH[sourceIndex];
+		if (!held && !SOUNDING[sourceIndex])
 			return;
-		if (!changed && COOLDOWN[i] > 0)
+		if (!changed && COOLDOWN[sourceIndex] > 0)
 			return;
 
-		SOUNDING[i] = held;
-		SENT_PITCH[i] = pitch;
-		COOLDOWN[i] = PACKET_RATE;
+		SOUNDING[sourceIndex] = held;
+		SENT_PITCH[sourceIndex] = pitch;
+		SENT_SETTINGS[sourceIndex] = settings;
+		COOLDOWN[sourceIndex] = PACKET_RATE;
 		lastTrainId = trainId;
-		AllPackets.CHANNEL.sendToServer(new TrainSoundPacket(trainId, mode, held, pitch));
+		AllPackets.CHANNEL.sendToServer(new TrainSoundPacket(trainId, sourceIndex, held, pitch, settings));
 	}
 
 	public static void releaseAll() {
-		for (SoundMode mode : SoundMode.values()) {
-			int i = mode.ordinal();
-			if (!SOUNDING[i])
+		for (int sourceIndex = 0; sourceIndex < SOUNDING.length; sourceIndex++) {
+			if (!SOUNDING[sourceIndex])
 				continue;
-			SOUNDING[i] = false;
+			SOUNDING[sourceIndex] = false;
 			if (lastTrainId != null)
-				AllPackets.CHANNEL.sendToServer(new TrainSoundPacket(lastTrainId, mode, false, SENT_PITCH[i]));
+				AllPackets.CHANNEL.sendToServer(
+					new TrainSoundPacket(lastTrainId, sourceIndex, false, SENT_PITCH[sourceIndex],
+						SENT_SETTINGS[sourceIndex]));
 		}
 	}
 }

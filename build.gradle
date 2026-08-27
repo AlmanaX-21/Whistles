@@ -24,6 +24,7 @@ minecraft {
             // create ships SRG-named mixins; dev runs need the refmap remapped back
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            args '--mixin', 'whistles.mixins.json'
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -106,6 +107,7 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Title'    : project.name,
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
+                'MixinConfigs'            : 'whistles.mixins.json',
         ])
     }
     finalizedBy 'reobfJar'

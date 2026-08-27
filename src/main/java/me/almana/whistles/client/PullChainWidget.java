@@ -1,26 +1,49 @@
 package me.almana.whistles.client;
 
 import me.almana.whistles.Config;
+import me.almana.whistles.Whistles;
 import me.almana.whistles.block.SoundMode;
+import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public class PullChainWidget extends AbstractWidget {
 
 	private static final float EASE_STEP = 0.15f;
 	private static final float DEADZONE = 0.02f;
+	private static final float GHOST_ALPHA = 0.2f;
+	private static final int ROPE_WIDTH = 20;
+	private static final int ROPE_TEXTURE_HEIGHT = 20;
+	private static final int ROPE_LEFT = 5;
+	private static final int HANDLE_TEXTURE_TOP = 20;
+	private static final int HANDLE_TEXTURE_HEIGHT = 12;
+	private static final ResourceLocation PULLEY = Whistles.asResource("textures/gui/pulley.png");
+	private static final ResourceLocation PULLEY_ROPE = Whistles.asResource("textures/gui/pulley_rope.png");
 
+	private final int sourceIndex;
 	private final SoundMode mode;
+	private final TrainSoundSettings settings;
+	private final int travel;
 	private float pull;
 	private boolean dragging;
+	private double grabOffset;
 	private int hangTicks;
 
-	public PullChainWidget(int x, int y, int width, int height, SoundMode mode) {
-		super(x, y, width, height, Component.translatable("whistles.hud." + mode.getSerializedName()));
+	public PullChainWidget(int x, int y, int travel, int sourceIndex, SoundMode mode, TrainSoundSettings settings) {
+		super(x, y, PullChainLayout.PULLEY_WIDTH, travel + PullChainLayout.PULLEY_HEIGHT,
+			Component.translatable("whistles.hud." + mode.getSerializedName()));
+		this.sourceIndex = sourceIndex;
 		this.mode = mode;
+		this.settings = settings;
+		this.travel = travel;
+	}
+
+	public int sourceIndex() {
+		return sourceIndex;
 	}
 
 	public SoundMode mode() {
@@ -31,8 +54,12 @@ public class PullChainWidget extends AbstractWidget {
 		return pull > DEADZONE;
 	}
 
-	public float semitones(int range) {
-		return -range + pull * 2 * range;
+	public TrainSoundSettings settings() {
+		return settings;
+	}
+
+	public float semitones() {
+		return -settings.pitchRange() + pull * 2 * settings.pitchRange();
 	}
 
 	public void forceRelease() {
@@ -58,8 +85,17 @@ public class PullChainWidget extends AbstractWidget {
 			pull = Math.max(0, pull - EASE_STEP);
 	}
 
+	private int pulleyTop() {
+		return getY() + Math.round(pull * travel);
+	}
+
 	private void updatePull(double mouseY) {
-		pull = (float) Math.max(0, Math.min(1, (mouseY - getY()) / getHeight()));
+		pull = PullChainLayout.pullForMouse(mouseY, grabOffset, getY(), travel);
+	}
+
+	@Override
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return active && visible && PullChainLayout.isOverHandle(mouseX, mouseY, getX(), getY(), pull, travel);
 	}
 
 	@Override
@@ -67,7 +103,7 @@ public class PullChainWidget extends AbstractWidget {
 		if (!isValidClickButton(button) || !isMouseOver(mouseX, mouseY))
 			return false;
 		dragging = true;
-		updatePull(mouseY);
+		grabOffset = mouseY - pulleyTop();
 		return true;
 	}
 
@@ -87,17 +123,24 @@ public class PullChainWidget extends AbstractWidget {
 
 	@Override
 	protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		int left = getX();
-		int top = getY();
-		int right = left + getWidth();
-		int bottom = top + getHeight();
-		int handleY = top + Math.round(pull * getHeight());
+		graphics.setColor(1, 1, 1, GHOST_ALPHA);
+		graphics.blit(PULLEY, getX(), getY() + travel + HANDLE_TEXTURE_TOP, 0, HANDLE_TEXTURE_TOP,
+			PullChainLayout.PULLEY_WIDTH, HANDLE_TEXTURE_HEIGHT, PullChainLayout.PULLEY_WIDTH,
+			PullChainLayout.PULLEY_HEIGHT);
+		graphics.setColor(1, 1, 1, 1);
 
-		graphics.fill(left, top, right, bottom, 0x50000000);
-		if (isActive())
-			graphics.fill(left, top, right, handleY, 0x60FFD87F);
-		int colour = isActive() ? 0xFFFFD87F : 0xFFA0A0A0;
-		graphics.fill(left, Math.min(handleY, bottom - 3), right, Math.min(handleY + 3, bottom), colour);
+		int ropeTop = getY();
+		int remaining = pulleyTop() - ropeTop + HANDLE_TEXTURE_TOP;
+		while (remaining > 0) {
+			int segmentHeight = PullChainLayout.ropeSegmentHeight(remaining);
+			graphics.blit(PULLEY_ROPE, getX() + ROPE_LEFT, ropeTop, 0, 0, ROPE_WIDTH, segmentHeight,
+				ROPE_WIDTH, ROPE_TEXTURE_HEIGHT);
+			ropeTop += segmentHeight;
+			remaining -= segmentHeight;
+		}
+		graphics.blit(PULLEY, getX(), pulleyTop() + HANDLE_TEXTURE_TOP, 0, HANDLE_TEXTURE_TOP,
+			PullChainLayout.PULLEY_WIDTH, HANDLE_TEXTURE_HEIGHT, PullChainLayout.PULLEY_WIDTH,
+			PullChainLayout.PULLEY_HEIGHT);
 	}
 
 	@Override

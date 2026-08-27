@@ -9,8 +9,9 @@ import com.simibubi.create.content.trains.entity.Carriage.DimensionalCarriageEnt
 import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
 import com.simibubi.create.content.trains.entity.Train;
 import me.almana.whistles.AllPackets;
-import me.almana.whistles.block.SoundMode;
+import me.almana.whistles.client.TrainSoundSources;
 import me.almana.whistles.client.TrainSounds;
+import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,49 +23,68 @@ import net.minecraftforge.network.PacketDistributor;
 
 public class TrainSoundPacket {
 
+	public static final int MAX_SOURCES = 3;
+
 	public final UUID trainId;
-	public final SoundMode mode;
+	public final int sourceIndex;
 	public final boolean active;
 	public final byte pitch;
+	public final TrainSoundSettings settings;
 
-	public TrainSoundPacket(UUID trainId, SoundMode mode, boolean active, byte pitch) {
+	public TrainSoundPacket(UUID trainId, int sourceIndex, boolean active, byte pitch, TrainSoundSettings settings) {
 		this.trainId = trainId;
-		this.mode = mode;
+		this.sourceIndex = sourceIndex;
 		this.active = active;
 		this.pitch = pitch;
+		this.settings = settings;
 	}
 
 	public TrainSoundPacket(FriendlyByteBuf buffer) {
 		trainId = buffer.readUUID();
-		mode = buffer.readEnum(SoundMode.class);
+		sourceIndex = buffer.readUnsignedByte();
 		active = buffer.readBoolean();
 		pitch = buffer.readByte();
+		settings = TrainSoundSettings.read(buffer);
 	}
 
 	public void write(FriendlyByteBuf buffer) {
 		buffer.writeUUID(trainId);
-		buffer.writeEnum(mode);
+		buffer.writeByte(sourceIndex);
 		buffer.writeBoolean(active);
 		buffer.writeByte(pitch);
+		settings.write(buffer);
 	}
 
 	public void handle(Supplier<NetworkEvent.Context> ctx) {
 		NetworkEvent.Context context = ctx.get();
 		context.enqueueWork(() -> {
+			if (!isValidSourceIndex(sourceIndex))
+				return;
 			ServerPlayer sender = context.getSender();
 			if (sender == null) {
-				DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> TrainSounds.receive(this));
+				if (settings.valid())
+					DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> TrainSounds.receive(this));
 				return;
 			}
 			Train train = Create.RAILWAYS.sided(sender.level()).trains.get(trainId);
 			if (train == null || !isDriving(sender, train))
 				return;
-			AllPackets.CHANNEL.send(PacketDistributor.ALL.noArg(), this);
+			var sources = TrainSoundSources.find(train, sender.level());
+			if (sourceIndex >= sources.size())
+				return;
+			TrainSoundPacket relayed = new TrainSoundPacket(trainId, sourceIndex, active, pitch,
+				sources.get(sourceIndex)
+					.settings());
+			AllPackets.CHANNEL.send(PacketDistributor.ALL.noArg(), relayed);
 		});
 		context.setPacketHandled(true);
 	}
 
-	private static boolean isDriving(ServerPlayer sender, Train train) {
+	public static boolean isValidSourceIndex(int sourceIndex) {
+		return sourceIndex >= 0 && sourceIndex < MAX_SOURCES;
+	}
+
+	static boolean isDriving(ServerPlayer sender, Train train) {
 		for (Carriage carriage : train.carriages) {
 			DimensionalCarriageEntity dimensional = carriage.getDimensionalIfPresent(sender.level()
 				.dimension());

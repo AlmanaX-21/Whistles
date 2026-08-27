@@ -8,19 +8,11 @@ import com.simibubi.create.Create;
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
 import com.simibubi.create.content.trains.entity.CarriageContraptionEntity;
 import com.simibubi.create.content.trains.entity.Train;
-import me.almana.whistles.Config;
-import me.almana.whistles.block.SoundMode;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 public class WhistleControlScreen extends Screen {
-
-	private static final int CHAIN_WIDTH = 30;
-	private static final int CHAIN_HEIGHT = 140;
-	private static final int GAP = 30;
-	private static final int RIGHT_MARGIN = 60;
 
 	private final List<PullChainWidget> chains = new ArrayList<>();
 	private UUID trainId;
@@ -31,6 +23,7 @@ public class WhistleControlScreen extends Screen {
 
 	@Override
 	protected void init() {
+		chains.clear();
 		if (!(ControlsHandler.getContraption() instanceof CarriageContraptionEntity contraption)) {
 			onClose();
 			return;
@@ -42,26 +35,24 @@ public class WhistleControlScreen extends Screen {
 			return;
 		}
 
-		List<SoundMode> present = new ArrayList<>();
-		for (SoundMode mode : SoundMode.values())
-			if (TrainSoundSources.find(train, mode, minecraft.level) != null)
-				present.add(mode);
-
-		int totalWidth = present.size() * CHAIN_WIDTH + Math.max(0, present.size() - 1) * GAP;
-		int left = width - RIGHT_MARGIN - totalWidth;
-		int top = height / 2 - CHAIN_HEIGHT / 2;
-		for (SoundMode mode : present) {
-			chains.add(addRenderableWidget(new PullChainWidget(left, top, CHAIN_WIDTH, CHAIN_HEIGHT, mode)));
-			left += CHAIN_WIDTH + GAP;
+		List<TrainSoundSources.Source> sources = TrainSoundSources.find(train, minecraft.level);
+		int travel = PullChainLayout.travel(height);
+		int left = PullChainLayout.controlsLeft(width, sources.size());
+		for (int sourceIndex = 0; sourceIndex < sources.size(); sourceIndex++) {
+			TrainSoundSources.Source source = sources.get(sourceIndex);
+			PullChainWidget chain = addRenderableWidget(new PullChainWidget(left, 0, travel, sourceIndex, source.mode(),
+				source.settings()));
+			chains.add(chain);
+			left += PullChainLayout.PULLEY_WIDTH + PullChainLayout.GAP;
 		}
 	}
 
 	@Override
 	public void tick() {
-		int range = Config.pitchRange();
 		for (PullChainWidget chain : chains) {
 			chain.easeTowardZero();
-			TrainSoundInput.sendIfChanged(chain.mode(), trainId, chain.isActive(), chain.semitones(range));
+			TrainSoundInput.sendIfChanged(chain.sourceIndex(), trainId, chain.isActive(), chain.semitones(),
+				chain.settings());
 		}
 	}
 
@@ -91,7 +82,8 @@ public class WhistleControlScreen extends Screen {
 			Component label = Component.translatable("whistles.hud." + chain.mode()
 				.getSerializedName());
 			int centerX = chain.getX() + chain.getWidth() / 2;
-			graphics.drawCenteredString(font, label, centerX, chain.getY() + chain.getHeight() + 6, 0xFFFFFF);
+			graphics.drawCenteredString(font, label, centerX,
+				chain.getY() + chain.getHeight() + PullChainLayout.LABEL_GAP, 0xFFFFFF);
 		}
 	}
 }

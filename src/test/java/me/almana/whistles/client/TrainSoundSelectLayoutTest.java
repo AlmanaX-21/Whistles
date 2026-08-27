@@ -16,12 +16,24 @@ class TrainSoundSelectLayoutTest {
 		assertEquals(60, left);
 		assertEquals(260, right);
 		assertEquals(left, TrainSoundSelectLayout.previewButtonLeft(screenWidth));
+		assertEquals(TrainSoundSelectLayout.doneButtonLeft(screenWidth),
+			TrainSoundSelectLayout.settingsButtonLeft(screenWidth));
 		assertEquals(right,
 			TrainSoundSelectLayout.doneButtonLeft(screenWidth) + TrainSoundSelectLayout.BUTTON_WIDTH);
 		assertEquals(4,
 			TrainSoundSelectLayout.doneButtonLeft(screenWidth)
 				- TrainSoundSelectLayout.previewButtonLeft(screenWidth)
 				- TrainSoundSelectLayout.BUTTON_WIDTH);
+	}
+
+	@Test
+	void keepsTheSettingsRowBetweenTheListAndActionButtons() {
+		int screenHeight = 240;
+
+		assertTrue(TrainSoundSelectLayout.listBottom(screenHeight)
+			< TrainSoundSelectLayout.settingsButtonTop(screenHeight));
+		assertTrue(TrainSoundSelectLayout.settingsButtonTop(screenHeight) + TrainSoundSelectLayout.BUTTON_HEIGHT
+			< TrainSoundSelectLayout.buttonTop(screenHeight));
 	}
 
 	@Test

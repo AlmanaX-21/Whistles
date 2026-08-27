@@ -25,19 +25,22 @@ public class TrainSoundSelectScreen extends Screen {
 
 	private final BlockPos pos;
 	private ResourceLocation selected;
+	private boolean automaticArrival;
+	private Button automaticArrivalButton;
 	private EditBox search;
 	private SoundList list;
 
-	private TrainSoundSelectScreen(BlockPos pos, ResourceLocation selected) {
+	private TrainSoundSelectScreen(BlockPos pos, ResourceLocation selected, boolean automaticArrival) {
 		super(Component.translatable("whistles.gui.select_sound"));
 		this.pos = pos;
 		this.selected = selected;
+		this.automaticArrival = automaticArrival;
 	}
 
 	public static void open(BlockPos pos) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level.getBlockEntity(pos) instanceof TrainSoundPostBlockEntity be)
-			mc.setScreen(new TrainSoundSelectScreen(pos, be.getSound()));
+			mc.setScreen(new TrainSoundSelectScreen(pos, be.getSound(), be.isAutomaticArrival()));
 	}
 
 	@Override
@@ -59,6 +62,14 @@ public class TrainSoundSelectScreen extends Screen {
 			.bounds(TrainSoundSelectLayout.doneButtonLeft(width), TrainSoundSelectLayout.buttonTop(height),
 				TrainSoundSelectLayout.BUTTON_WIDTH, TrainSoundSelectLayout.BUTTON_HEIGHT)
 			.build());
+		automaticArrivalButton = addRenderableWidget(Button.builder(automaticArrivalLabel(), button -> toggleAutomatic())
+			.bounds(TrainSoundSelectLayout.previewButtonLeft(width), TrainSoundSelectLayout.settingsButtonTop(height),
+				TrainSoundSelectLayout.BUTTON_WIDTH, TrainSoundSelectLayout.BUTTON_HEIGHT)
+			.build());
+		addRenderableWidget(Button.builder(Component.translatable("whistles.gui.settings"), button -> openSettings())
+			.bounds(TrainSoundSelectLayout.settingsButtonLeft(width), TrainSoundSelectLayout.settingsButtonTop(height),
+				TrainSoundSelectLayout.BUTTON_WIDTH, TrainSoundSelectLayout.BUTTON_HEIGHT)
+			.build());
 
 		list.refresh("");
 	}
@@ -68,9 +79,25 @@ public class TrainSoundSelectScreen extends Screen {
 			.play(SimpleSoundInstance.forUI(SoundEvent.createVariableRangeEvent(selected), 1f));
 	}
 
+	private void openSettings() {
+		if (minecraft.level.getBlockEntity(pos) instanceof TrainSoundPostBlockEntity be)
+			minecraft.setScreen(new TrainSoundSettingsScreen(this, pos, be.getSettings()));
+	}
+
+	private void toggleAutomatic() {
+		automaticArrival = !automaticArrival;
+		automaticArrivalButton.setMessage(automaticArrivalLabel());
+		AllPackets.CHANNEL.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
+	}
+
+	private Component automaticArrivalLabel() {
+		return Component.translatable(automaticArrival ? "whistles.gui.auto_arrival_on"
+			: "whistles.gui.auto_arrival_off");
+	}
+
 	@Override
 	public void onClose() {
-		AllPackets.CHANNEL.sendToServer(new SetTrainSoundPacket(pos, selected));
+		AllPackets.CHANNEL.sendToServer(new SetTrainSoundPacket(pos, selected, automaticArrival));
 		super.onClose();
 	}
 
@@ -86,7 +113,7 @@ public class TrainSoundSelectScreen extends Screen {
 		graphics.drawCenteredString(font, title, width / 2, 12, 0xFFFFFF);
 		graphics.drawCenteredString(font, Component.translatable("whistles.gui.selected",
 			Component.literal(SoundIds.displayName(selected.getPath())).withStyle(ChatFormatting.AQUA)),
-			width / 2, height - 42, 0xB0B0B0);
+			width / 2, TrainSoundSelectLayout.selectedLabelTop(height), 0xB0B0B0);
 	}
 
 	private class SoundList extends ObjectSelectionList<SoundList.Entry> {

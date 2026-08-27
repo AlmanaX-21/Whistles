@@ -5,11 +5,14 @@ import java.util.List;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import me.almana.whistles.AllBlockEntities;
 import me.almana.whistles.Whistles;
+import me.almana.whistles.sound.AutomaticArrivalOrder;
 import me.almana.whistles.sound.SoundIds;
+import me.almana.whistles.sound.TrainSoundSettings;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -23,12 +26,19 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 
 	public static final ResourceLocation DEFAULT_WHISTLE = Whistles.asResource("train_sound/steam_whistle");
 	public static final ResourceLocation DEFAULT_HORN = Whistles.asResource("train_sound/steam_horn");
+	public static final String AUTOMATIC_ARRIVAL = "AutomaticArrival";
+	public static final String AUTOMATIC_ARRIVAL_ORDER = "AutomaticArrivalOrder";
 
 	private ResourceLocation sound;
+	private TrainSoundSettings settings;
+	private boolean automaticArrival;
+	private long automaticArrivalOrder;
+	private boolean migrateSettings;
 
 	public TrainSoundPostBlockEntity(BlockPos pos, BlockState state) {
 		super(AllBlockEntities.TRAIN_SOUND_POST.get(), pos, state);
 		sound = state.getValue(TrainSoundPostBlock.MODE) == SoundMode.HORN ? DEFAULT_HORN : DEFAULT_WHISTLE;
+		settings = TrainSoundSettings.fromConfig();
 	}
 
 	public ResourceLocation getSound() {
@@ -37,6 +47,29 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 
 	public void setSound(ResourceLocation sound) {
 		this.sound = sound;
+		setChanged();
+		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+	}
+
+	public TrainSoundSettings getSettings() {
+		return settings;
+	}
+
+	public void setSettings(TrainSoundSettings settings) {
+		this.settings = settings;
+		setChanged();
+		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+	}
+
+	public boolean isAutomaticArrival() {
+		return automaticArrival;
+	}
+
+	public void setAutomaticArrival(boolean automaticArrival, long automaticArrivalOrder) {
+		if (this.automaticArrival == automaticArrival)
+			return;
+		this.automaticArrival = automaticArrival;
+		this.automaticArrivalOrder = automaticArrival ? automaticArrivalOrder : 0;
 		setChanged();
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
 	}
@@ -65,6 +98,9 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 	protected void saveAdditional(CompoundTag tag) {
 		super.saveAdditional(tag);
 		tag.putString("Sound", sound.toString());
+		tag.put("Settings", settings.write());
+		tag.putBoolean(AUTOMATIC_ARRIVAL, automaticArrival);
+		tag.putLong(AUTOMATIC_ARRIVAL_ORDER, automaticArrivalOrder);
 	}
 
 	@Override
@@ -72,6 +108,31 @@ public class TrainSoundPostBlockEntity extends BlockEntity implements IHaveGoggl
 		super.load(tag);
 		if (tag.contains("Sound"))
 			sound = new ResourceLocation(tag.getString("Sound"));
+		automaticArrival = tag.getBoolean(AUTOMATIC_ARRIVAL);
+		automaticArrivalOrder = automaticArrival ? tag.getLong(AUTOMATIC_ARRIVAL_ORDER) : 0;
+		if (tag.contains("Settings", Tag.TAG_COMPOUND)) {
+			TrainSoundSettings loaded = TrainSoundSettings.read(tag.getCompound("Settings"));
+			if (loaded.valid()) {
+				settings = loaded;
+				migrateSettings = false;
+				return;
+			}
+		}
+		settings = TrainSoundSettings.fromConfig();
+		migrateSettings = true;
+	}
+
+	@Override
+	public void onLoad() {
+		super.onLoad();
+		if (!level.isClientSide && automaticArrival)
+			AutomaticArrivalOrder.get(level.getServer())
+				.observe(automaticArrivalOrder);
+		if (migrateSettings && !level.isClientSide) {
+			migrateSettings = false;
+			setChanged();
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+		}
 	}
 
 	@Override

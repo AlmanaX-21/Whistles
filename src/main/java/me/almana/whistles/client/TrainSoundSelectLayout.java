@@ -7,7 +7,7 @@ final class TrainSoundSelectLayout {
 	static final int NAME_TOP = 3;
 	static final int IDENTIFIER_TOP = 15;
 	static final int LIST_TOP = 56;
-	static final int LIST_BOTTOM_MARGIN = 56;
+	static final int LIST_BOTTOM_MARGIN = 88;
 	static final int BUTTON_WIDTH = 98;
 	static final int BUTTON_HEIGHT = 20;
 	static final int BUTTON_GAP = 4;
@@ -30,6 +30,18 @@ final class TrainSoundSelectLayout {
 
 	static int doneButtonLeft(int screenWidth) {
 		return previewButtonLeft(screenWidth) + BUTTON_WIDTH + BUTTON_GAP;
+	}
+
+	static int settingsButtonLeft(int screenWidth) {
+		return doneButtonLeft(screenWidth);
+	}
+
+	static int settingsButtonTop(int screenHeight) {
+		return screenHeight - 60;
+	}
+
+	static int selectedLabelTop(int screenHeight) {
+		return screenHeight - 76;
 	}
 
 	static int buttonTop(int screenHeight) {
