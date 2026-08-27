@@ -1,5 +1,6 @@
 package me.almana.whistles.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import me.almana.whistles.Config;
 import me.almana.whistles.Whistles;
 import me.almana.whistles.block.SoundMode;
@@ -123,11 +124,13 @@ public class PullChainWidget extends AbstractWidget {
 
 	@Override
 	protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+		RenderSystem.enableBlend();
 		graphics.setColor(1, 1, 1, GHOST_ALPHA);
 		graphics.blit(PULLEY, getX(), getY() + travel + HANDLE_TEXTURE_TOP, 0, HANDLE_TEXTURE_TOP,
 			PullChainLayout.PULLEY_WIDTH, HANDLE_TEXTURE_HEIGHT, PullChainLayout.PULLEY_WIDTH,
 			PullChainLayout.PULLEY_HEIGHT);
 		graphics.setColor(1, 1, 1, 1);
+		RenderSystem.disableBlend();
 
 		int ropeTop = getY();
 		int remaining = pulleyTop() - ropeTop + HANDLE_TEXTURE_TOP;
