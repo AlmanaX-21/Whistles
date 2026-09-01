@@ -1,0 +1,389 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_github:
+        description: Publish to GitHub Releases
+        required: true
+        type: boolean
+        default: true
+      publish_curseforge:
+        description: Publish to CurseForge
+        required: true
+        type: boolean
+        default: true
+      publish_modrinth:
+        description: Publish to Modrinth
+        required: true
+        type: boolean
+        default: true
+      confirm:
+        description: Type RELEASE to confirm
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    outputs:
+      minecraft_version: ${{ steps.metadata.outputs.minecraft_version }}
+      mod_version: ${{ steps.metadata.outputs.mod_version }}
+      mod_id: ${{ steps.metadata.outputs.mod_id }}
+      release_tag: ${{ steps.metadata.outputs.release_tag }}
+      changelog_path: ${{ steps.metadata.outputs.changelog_path }}
+      artifact_path: ${{ steps.metadata.outputs.artifact_path }}
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+      display_name: ${{ steps.metadata.outputs.display_name }}
+      release_artifact: ${{ steps.metadata.outputs.release_artifact }}
+      publish_github: ${{ steps.metadata.outputs.publish_github }}
+      publish_curseforge: ${{ steps.metadata.outputs.publish_curseforge }}
+      publish_modrinth: ${{ steps.metadata.outputs.publish_modrinth }}
+    env:
+      CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate release configuration
+        id: metadata
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          PUBLISH_GITHUB: ${{ inputs.publish_github }}
+          PUBLISH_CURSEFORGE: ${{ inputs.publish_curseforge }}
+          PUBLISH_MODRINTH: ${{ inputs.publish_modrinth }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          CURSEFORGE_API_TOKEN: ${{ secrets.CURSEFORGE_API_TOKEN }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          property() {
+            awk -F= -v key="$1" '$1 == key { print substr($0, index($0, "=") + 1); exit }' gradle.properties
+          }
+
+          [[ "$CONFIRM" == "RELEASE" ]] || { echo "Confirmation must be RELEASE." >&2; exit 1; }
+          [[ "$PUBLISH_GITHUB" == "true" || "$PUBLISH_CURSEFORGE" == "true" || "$PUBLISH_MODRINTH" == "true" ]] || { echo "Select at least one publishing destination." >&2; exit 1; }
+
+          minecraft_version="$(property minecraft_version)"
+          mod_version="$(property mod_version)"
+          mod_id="$(property mod_id)"
+          mod_name="$(property mod_name)"
+          [[ -n "$minecraft_version" && -n "$mod_version" && -n "$mod_id" && -n "$mod_name" ]] || { echo "Required Gradle metadata is missing." >&2; exit 1; }
+          [[ "$REF_TYPE" == "branch" ]] || { echo "Run this workflow from the $minecraft_version branch." >&2; exit 1; }
+          [[ "$REF_NAME" == "$minecraft_version" ]] || { echo "Run this workflow from the $minecraft_version branch." >&2; exit 1; }
+          grep -q "id 'net.minecraftforge.gradle'" build.gradle || { echo "ForgeGradle plugin declaration is missing." >&2; exit 1; }
+
+          release_tag="$minecraft_version-$mod_version"
+          changelog_path="CHANGELOGS/$release_tag.md"
+          artifact_path="build/libs/$mod_id-$mod_version.jar"
+          artifact_name="$(basename "$artifact_path")"
+          display_name="$mod_name - $release_tag"
+          release_artifact="release-build-$release_tag"
+
+          [[ -s "$changelog_path" ]] || { echo "Changelog is missing or empty: $changelog_path" >&2; exit 1; }
+
+          if [[ "$PUBLISH_CURSEFORGE" == "true" ]]; then
+            [[ -n "$CURSEFORGE_API_TOKEN" ]] || { echo "CURSEFORGE_API_TOKEN is required." >&2; exit 1; }
+            [[ "$CURSEFORGE_PROJECT_ID" =~ ^[1-9][0-9]*$ ]] || { echo "CURSEFORGE_PROJECT_ID must be a positive numeric ID." >&2; exit 1; }
+          fi
+
+          if [[ "$PUBLISH_MODRINTH" == "true" ]]; then
+            [[ -n "$MODRINTH_TOKEN" ]] || { echo "MODRINTH_TOKEN is required." >&2; exit 1; }
+            [[ -n "$MODRINTH_PROJECT_ID" ]] || { echo "MODRINTH_PROJECT_ID is required." >&2; exit 1; }
+          fi
+
+          {
+            echo "minecraft_version=$minecraft_version"
+            echo "mod_version=$mod_version"
+            echo "mod_id=$mod_id"
+            echo "release_tag=$release_tag"
+            echo "changelog_path=$changelog_path"
+            echo "artifact_path=$artifact_path"
+            echo "artifact_name=$artifact_name"
+            echo "display_name=$display_name"
+            echo "release_artifact=$release_artifact"
+            echo "publish_github=$PUBLISH_GITHUB"
+            echo "publish_curseforge=$PUBLISH_CURSEFORGE"
+            echo "publish_modrinth=$PUBLISH_MODRINTH"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+
+      - name: Build release bundle
+        env:
+          ARTIFACT_PATH: ${{ needs.validate-release.outputs.artifact_path }}
+          ARTIFACT_NAME: ${{ needs.validate-release.outputs.artifact_name }}
+          CHANGELOG_PATH: ${{ needs.validate-release.outputs.changelog_path }}
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build --no-daemon --console=plain
+          test -s "$ARTIFACT_PATH"
+          mkdir -p release-files
+          cp "$ARTIFACT_PATH" "release-files/$ARTIFACT_NAME"
+          cp "$CHANGELOG_PATH" "release-files/CHANGELOG.md"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ needs.validate-release.outputs.release_artifact }}
+          path: release-files/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-github:
+    if: needs.validate-release.outputs.publish_github == 'true'
+    needs:
+      - validate-release
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.validate-release.outputs.release_artifact }}
+          path: release-files
+
+      - name: Publish to GitHub Releases
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.validate-release.outputs.release_tag }}
+          DISPLAY_NAME: ${{ needs.validate-release.outputs.display_name }}
+        shell: bash
+        run: |
+          encoded_tag="$(jq -rn --arg value "$RELEASE_TAG" '$value | @uri')"
+          tag_status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/github-tag.json" \
+            --write-out "%{http_code}" \
+            --request GET \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/tags/${encoded_tag}")"
+          case "$tag_status" in
+            404) ;;
+            200) echo "GitHub tag already exists: $RELEASE_TAG" >&2; exit 1 ;;
+            *) echo "GitHub tag lookup failed with HTTP $tag_status." >&2; exit 1 ;;
+          esac
+
+          release_payload="$(jq -n \
+            --arg tag_name "$RELEASE_TAG" \
+            --arg target_commitish "$GITHUB_SHA" \
+            --arg name "$DISPLAY_NAME" \
+            --rawfile body release-files/CHANGELOG.md \
+            '{
+              tag_name: $tag_name,
+              target_commitish: $target_commitish,
+              name: $name,
+              body: $body
+            }')"
+          http_status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/github-release.json" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data-binary "$release_payload" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases")"
+          [[ "$http_status" =~ ^2[0-9][0-9]$ ]] || { echo "GitHub release creation failed with HTTP $http_status." >&2; exit 1; }
+          release_url="$(jq -er '.html_url | strings | select(length > 0)' "$RUNNER_TEMP/github-release.json")"
+          echo "url=$release_url" >> "$GITHUB_OUTPUT"
+
+      - name: Upload GitHub release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_NAME: ${{ needs.validate-release.outputs.artifact_name }}
+        shell: bash
+        run: |
+          upload_url="$(jq -er '.upload_url | strings | select(length > 0)' "$RUNNER_TEMP/github-release.json")"
+          upload_url="${upload_url%%\{*}"
+          encoded_name="$(jq -rn --arg value "$ARTIFACT_NAME" '$value | @uri')"
+          http_status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/github-asset.json" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/java-archive" \
+            --data-binary "@release-files/$ARTIFACT_NAME" \
+            "${upload_url}?name=${encoded_name}")"
+          [[ "$http_status" =~ ^2[0-9][0-9]$ ]] || { echo "GitHub asset upload failed with HTTP $http_status." >&2; exit 1; }
+
+  publish-curseforge:
+    if: needs.validate-release.outputs.publish_curseforge == 'true'
+    needs:
+      - validate-release
+      - build
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.file-url.outputs.url }}
+    env:
+      CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.validate-release.outputs.release_artifact }}
+          path: release-files
+
+      - name: Publish to CurseForge
+        id: upload
+        uses: AlmanaX-21/curseforge-upload@19cde6e77eea4531c9b8bc13fbac006ed20390ee
+        env:
+          CURSEFORGE_API_TOKEN: ${{ secrets.CURSEFORGE_API_TOKEN }}
+        with:
+          token: ${{ env.CURSEFORGE_API_TOKEN }}
+          project-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          file: release-files/${{ needs.validate-release.outputs.artifact_name }}
+          game-version-names: 1.20.1,Forge,Client,Server,Java 17
+          release-type: release
+          changelog-file: release-files/CHANGELOG.md
+          changelog-type: markdown
+          display-name: ${{ needs.validate-release.outputs.display_name }}
+          relations: >-
+            [{"slug":"create","projectId":328085,"type":"requiredDependency"}]
+
+      - name: Record CurseForge URL
+        id: file-url
+        env:
+          FILE_ID: ${{ steps.upload.outputs.file-id }}
+          PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+        shell: bash
+        run: |
+          test -n "$FILE_ID"
+          echo "url=https://www.curseforge.com/projects/${PROJECT_ID}/files/${FILE_ID}" >> "$GITHUB_OUTPUT"
+
+  publish-modrinth:
+    if: needs.validate-release.outputs.publish_modrinth == 'true'
+    needs:
+      - validate-release
+      - build
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.file-url.outputs.url }}
+    env:
+      MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.validate-release.outputs.release_artifact }}
+          path: release-files
+
+      - name: Create Modrinth version metadata
+        env:
+          RELEASE_TAG: ${{ needs.validate-release.outputs.release_tag }}
+          DISPLAY_NAME: ${{ needs.validate-release.outputs.display_name }}
+          MINECRAFT_VERSION: ${{ needs.validate-release.outputs.minecraft_version }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg project_id "$MODRINTH_PROJECT_ID" \
+            --arg version_number "$RELEASE_TAG" \
+            --arg name "$DISPLAY_NAME" \
+            --arg minecraft_version "$MINECRAFT_VERSION" \
+            --rawfile changelog release-files/CHANGELOG.md \
+            '{
+              project_id: $project_id,
+              name: $name,
+              version_number: $version_number,
+              changelog: $changelog,
+              dependencies: [{
+                project_id: "LNytGWDc",
+                dependency_type: "required"
+              }],
+              game_versions: [$minecraft_version],
+              version_type: "release",
+              loaders: ["forge"],
+              featured: true,
+              status: "listed",
+              file_parts: ["primary"],
+              primary_file: "primary",
+              environment: "client_and_server"
+            }' > "$RUNNER_TEMP/modrinth-version.json"
+
+      - name: Publish to Modrinth
+        id: file-url
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          ARTIFACT_NAME: ${{ needs.validate-release.outputs.artifact_name }}
+        shell: bash
+        run: |
+          http_status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/modrinth-response.json" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Authorization: $MODRINTH_TOKEN" \
+            --header "User-Agent: AlmanaX-21/Whistles (https://github.com/AlmanaX-21/Whistles)" \
+            --form "data=@$RUNNER_TEMP/modrinth-version.json;type=application/json" \
+            --form "primary=@release-files/$ARTIFACT_NAME;type=application/java-archive" \
+            https://api.modrinth.com/v2/version)"
+          [[ "$http_status" =~ ^2[0-9][0-9]$ ]] || { echo "Modrinth upload failed with HTTP $http_status." >&2; exit 1; }
+          version_id="$(jq -er '.id | strings | select(length > 0)' "$RUNNER_TEMP/modrinth-response.json")"
+          echo "url=https://modrinth.com/mod/${MODRINTH_PROJECT_ID}/version/${version_id}" >> "$GITHUB_OUTPUT"
+
+  release-summary:
+    if: always()
+    needs:
+      - validate-release
+      - build
+      - publish-github
+      - publish-curseforge
+      - publish-modrinth
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write release summary
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          GITHUB_RESULT: ${{ needs.publish-github.result }}
+          GITHUB_URL: ${{ needs.publish-github.outputs.url }}
+          CURSEFORGE_RESULT: ${{ needs.publish-curseforge.result }}
+          CURSEFORGE_URL: ${{ needs.publish-curseforge.outputs.url }}
+          MODRINTH_RESULT: ${{ needs.publish-modrinth.result }}
+          MODRINTH_URL: ${{ needs.publish-modrinth.outputs.url }}
+        shell: bash
+        run: |
+          result_label() {
+            case "$1" in
+              success) echo published ;;
+              failure) echo failed ;;
+              cancelled|skipped) echo "$1" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          {
+            echo "## Release Build Summary"
+            echo
+            echo "| Target | Result | URL |"
+            echo "| --- | --- | --- |"
+            printf '| Build | %s | - |\n' "$(result_label "$BUILD_RESULT")"
+            printf '| GitHub Releases | %s | %s |\n' "$(result_label "$GITHUB_RESULT")" "${GITHUB_URL:--}"
+            printf '| CurseForge | %s | %s |\n' "$(result_label "$CURSEFORGE_RESULT")" "${CURSEFORGE_URL:--}"
+            printf '| Modrinth | %s | %s |\n' "$(result_label "$MODRINTH_RESULT")" "${MODRINTH_URL:--}"
+          } >> "$GITHUB_STEP_SUMMARY"
