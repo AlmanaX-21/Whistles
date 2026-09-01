@@ -3,6 +3,7 @@ package me.almana.whistles;
 import me.almana.whistles.net.SetTrainSoundPacket;
 import me.almana.whistles.net.SetTrainSoundSettingsPacket;
 import me.almana.whistles.net.TrainArrivalSoundPacket;
+import me.almana.whistles.net.TrainAutomaticWhistlePacket;
 import me.almana.whistles.net.TrainSoundPacket;
 
 import java.util.Optional;
@@ -13,7 +14,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public class AllPackets {
 
-	private static final String VERSION = "5";
+	private static final String VERSION = "6";
 
 	public static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder
 		.named(Whistles.asResource("main"))
@@ -33,5 +34,8 @@ public class AllPackets {
 		CHANNEL.registerMessage(3, SetTrainSoundSettingsPacket.class, SetTrainSoundSettingsPacket::write,
 			SetTrainSoundSettingsPacket::new, SetTrainSoundSettingsPacket::handle,
 			Optional.of(NetworkDirection.PLAY_TO_SERVER));
+		CHANNEL.registerMessage(4, TrainAutomaticWhistlePacket.class, TrainAutomaticWhistlePacket::write,
+			TrainAutomaticWhistlePacket::new, TrainAutomaticWhistlePacket::handle,
+			Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 	}
 }
